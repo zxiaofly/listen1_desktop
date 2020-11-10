@@ -19,15 +19,22 @@ var windowState = { maximized: false }
 const globalShortcutMapping = {
   'CmdOrCtrl+Alt+Left':'left',
   'CmdOrCtrl+Alt+Right':'right',
+  'CmdOrCtrl+Alt+Space':'space',
 };
 
-function initialTray(mainWindow) {
+let appTray;
+
+function initialTray(mainWindow, track) {
   const {app, Menu, Tray} = require('electron');
+  if(track == null || track == undefined){
+    track = {
+      title:"暂无歌曲",
+      artist: "  ",
+    }
+  }
 
-  let appIcon = null;
-
-  var trayIconPath = path.join(__dirname, '/resources/logo_16.png');
-  appTray = new Tray(trayIconPath);
+  let nowPlayingTitle = `${track.title}`
+  let nowPlayingArtist = `歌手: ${track.artist}`;
 
   function toggleVisiable() {
     var isVisible = mainWindow.isVisible();
@@ -37,15 +44,45 @@ function initialTray(mainWindow) {
       mainWindow.show();
     }
   }
-  const contextMenu = Menu.buildFromTemplate([
+
+  let menuTemplate = [
+    {label: nowPlayingTitle,  click(){
+      mainWindow.show();
+    }},
+    {label: nowPlayingArtist,  click(){
+      mainWindow.show();
+    }},
+    {type: 'separator'
+    },
+    {label: '播放/暂停',  click(){
+      mainWindow.webContents.send('globalShortcut', "space");
+    }},
+    {label: '上一首',  click(){
+      mainWindow.webContents.send('globalShortcut', "left");
+    }},
+    {label: '下一首',  click(){
+      mainWindow.webContents.send('globalShortcut', "right");
+    }},
     {label: '显示/隐藏窗口',  click(){
       toggleVisiable();
     }},
     {label: '退出',  click() {
       app.quit();
     }},
-  ]);
-  //appTray.setToolTip('This is my application.');
+  ];
+
+  const contextMenu = Menu.buildFromTemplate(menuTemplate);
+
+  if(appTray != null && appTray.destroy != undefined){
+    // appTray had create, just refresh tray menu here
+    appTray.setContextMenu(contextMenu);
+    return
+  }
+
+  let appIcon = null;
+
+  var trayIconPath = path.join(__dirname, '/resources/logo_16.png');
+  appTray = new Tray(trayIconPath);
   appTray.setContextMenu(contextMenu);
   appTray.on('click', function handleClicked () {
     toggleVisiable();
@@ -107,7 +144,7 @@ function createWindow() {
   const session = require('electron').session;
 
   const filter = {
-    urls: ["*://music.163.com/*", "*://*.xiami.com/*", "*://i.y.qq.com/*", "*://c.y.qq.com/*", "*://*.kugou.com/*", "*://*.bilibili.com/*", "*://*.migu.cn/*", "*://*.githubusercontent.com/*",
+    urls: ["*://music.163.com/*", "*://*.xiami.com/*", "*://i.y.qq.com/*", "*://c.y.qq.com/*", "*://*.kugou.com/*", "*://*.kuwo.cn/*", "*://*.bilibili.com/*", "*://*.bilivideo.com/*", "*://*.migu.cn/*", "*://*.githubusercontent.com/*",
       "https://listen1.github.io/listen1/callback.html?code=*"]
   };
 
@@ -214,9 +251,10 @@ function hack_referer_header(details) {
         referer_value = "https://gist.githubusercontent.com/";
     }
 
-    if (details.url.indexOf("api.xiami.com/") != -1 || details.url.indexOf('.xiami.com/song/playlist/id/') != -1) {
-        referer_value = "https://www.xiami.com/";
-    }
+    if (details.url.indexOf(".xiami.com/") != -1) {
+      add_origin = false;
+      referer_value = "https://www.xiami.com/";
+    }  
 
     if ((details.url.indexOf("y.qq.com/") != -1) ||
         (details.url.indexOf("qqmusic.qq.com/") != -1) ||
@@ -230,8 +268,8 @@ function hack_referer_header(details) {
     if (details.url.indexOf(".kuwo.cn/") != -1) {
         referer_value = "http://www.kuwo.cn/";
     }
-    if (details.url.indexOf(".bilibili.com/") != -1) {
-        referer_value = "http://www.bilibili.com/";
+    if (details.url.indexOf(".bilibili.com/") != -1 || details.url.indexOf(".bilivideo.com/") != -1) {
+        referer_value = "https://www.bilibili.com/";
         replace_origin = false;
         add_origin = false;
     }
@@ -268,7 +306,19 @@ function hack_referer_header(details) {
 
 ipcMain.on('currentLyric', (event, arg) => {
   if (floatingWindow && floatingWindow !== null) {
-    floatingWindow.webContents.send('currentLyric', arg);
+    if(typeof arg === 'string') {
+      floatingWindow.webContents.send('currentLyric', arg);
+      floatingWindow.webContents.send('currentLyricTrans', '');
+    } else {
+      floatingWindow.webContents.send('currentLyric', arg.lyric);
+      floatingWindow.webContents.send('currentLyricTrans', arg.tlyric);
+    }
+  }
+})
+
+ipcMain.on('trackPlayingNow', (event, track) => {
+  if(mainWindow != null){
+    initialTray(mainWindow, track);
   }
 })
 
@@ -317,6 +367,9 @@ if (!gotTheLock) {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore()
       mainWindow.focus()
+      // When start a new instance, show the main window and active in taskbar.
+      mainWindow.show()
+      mainWindow.setSkipTaskbar(false)
     }
   })
 
@@ -347,4 +400,3 @@ app.on('before-quit', () => willQuitApp = true);
 app.on('will-quit', () => {
  disableGlobalShortcuts();
 })
-

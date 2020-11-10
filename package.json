@@ -1,13 +1,13 @@
 {
-  "name": "Listen1",
-  "version": "2.5.1",
+  "name": "listen1",
+  "version": "2.17.0",
   "description": "One for all free music in China",
   "main": "app/main.js",
   "scripts": {
     "postinstall": "install-app-deps",
     "start": "electron ./app --enable-logging",
     "dev": "NODE_ENV='development' npm run start",
-    "dist:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false DEBUG=electron-builder electron-builder --platform darwin",
+    "dist:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false DEBUG=electron-builder electron-builder --mac",
     "dist": "electron-builder .",
     "dist:linux": "./node_modules/.bin/electron-builder --linux --ia32 --x64",
     "dist:linux32": "./node_modules/.bin/electron-builder --linux --ia32",
@@ -76,8 +76,8 @@
     }
   },
   "devDependencies": {
-    "electron": "^4.0.6",
-    "electron-builder": "^20.39.0"
+    "electron": "^8.2.3",
+    "electron-builder": "^22.5.1"
   },
   "dependencies": {
     "electron-debug": "^1.5.0"
